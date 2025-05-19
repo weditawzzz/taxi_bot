@@ -1,0 +1,15 @@
+{
+  "start": "Welcome! Choose a service:",
+  "city_ride": " \uD83C\uDFDB\uFE0F City ride",
+  "airport": " ✈\uFE0F Airport",
+  "alcohol": " \uD83C\uDF77 Alcohol delivery ",
+  "intercity": " \uD83C\uDFD9\uFE0F Intercity ride ",
+  "international": " \uD83C\uDF10 International ride",
+  "enter_distance": "Enter ride distance in kilometers:",
+  "calculated_price": "Calculated price",
+  "confirm_order": "Confirm order?",
+  "invalid_distance": "❌ Invalid distance! Please enter a number:",
+  "order_created": "✅ Order created! Waiting for driver confirmation.",
+  "yes": "Yes",
+  "no": "No"
+}
