@@ -1,52 +1,57 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
-from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import Config
-from core.services.user_service import get_or_create_user
-from core.services.price_calculator import calculate_city_price
-from core.keyboards import confirm_keyboard, payment_keyboard
-from core.handlers.client.start import get_localization
-from core.models import Session, Order, User
+from core.services.user_service import get_or_create_user, get_user_language
+from core.services.price_calculator import calculate_city_price, is_night_tariff
+from core.keyboards import (confirm_keyboard, payment_keyboard,
+                          back_to_menu_keyboard, back_keyboard, main_menu_keyboard)
+from core.utils.localization import get_localization
+from core.models import Session, Order
 from core.services.notifications import notify_driver
-from core.services.price_calculator import is_night_tariff
-from client_bot import bot
+from core.bot_instance import Bots
 from aiogram.fsm.state import State, StatesGroup
 from core.services.maps_service import calculate_distance
-from core.services.user_service import get_user_language  # Добавьте в начало файла
-from aiogram.types import Message
-from core.states import OrderState  # Убедитесь, что импорт есть
 import logging
-
 
 logger = logging.getLogger(__name__)
 router = Router()
 
-
 class OrderState(StatesGroup):
     waiting_origin = State()
     waiting_destination = State()
+    waiting_payment = State()
     confirmation = State()
 
+async def get_back_keyboard(lang: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(text=get_localization(lang, "back"), callback_data="back")
+    return builder.as_markup()
 
 @router.callback_query(F.data == "menu_city_ride")
 async def handle_city_ride(callback: CallbackQuery, state: FSMContext):
     lang = get_user_language(callback.from_user.id)
     await callback.message.edit_text(
         text=get_localization(lang, "enter_origin"),
-        reply_markup=None
+        reply_markup=back_to_menu_keyboard(lang)
     )
     await state.set_state(OrderState.waiting_origin)
 
-
 @router.message(OrderState.waiting_origin)
 async def process_origin(message: Message, state: FSMContext):
-    formatted_address = f"{message.text}, {Config.DEFAULT_CITY}"
-    await state.update_data(origin=formatted_address)
     lang = get_user_language(message.from_user.id)
-    await message.answer(get_localization(lang, "enter_destination"))
+    if message.text == get_localization(lang, "back"):
+        await state.clear()
+        from core.handlers.client.start import handle_start
+        await handle_start(message)
+        return
+
+    await state.update_data(origin=message.text)
+    await message.answer(
+        get_localization(lang, "enter_destination"),
+        reply_markup=back_keyboard(lang)
+    )
     await state.set_state(OrderState.waiting_destination)
 
 
@@ -128,9 +133,38 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
             session.add(order)
             session.commit()
 
-            await notify_driver(bot, order.id)
+            await notify_driver(order.id)
             await callback.message.edit_text(
                 text=get_localization(lang, "order_created")
             )
 
     await state.clear()
+
+
+@router.callback_query(F.data == "step_back")
+async def step_back_handler(callback: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    lang = get_user_language(callback.from_user.id)
+
+    if current_state == OrderState.waiting_destination.state:
+        await state.set_state(OrderState.waiting_origin)
+        await callback.message.edit_text(
+            get_localization(lang, "enter_origin"),
+            reply_markup=back_to_menu_keyboard(lang)
+        )
+    elif current_state == OrderState.waiting_payment.state:
+        await state.set_state(OrderState.waiting_destination)
+        await callback.message.edit_text(
+            get_localization(lang, "enter_destination"),
+            reply_markup=back_keyboard(lang)
+        )
+
+
+@router.callback_query(F.data == "back_to_menu")
+async def back_to_menu_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    lang = get_user_language(callback.from_user.id)
+    await callback.message.edit_text(
+        text=get_localization(lang, "start"),
+        reply_markup=main_menu_keyboard(lang)
+    )

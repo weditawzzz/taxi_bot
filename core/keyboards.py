@@ -25,7 +25,8 @@ def main_menu_keyboard(lang: str):
         text = get_localization(lang, key) or default_text
         builder.button(text=text, callback_data=f"menu_{key}")
 
-    builder.adjust(2, 2, 1)
+
+    builder.adjust(2, 2, 1)  # Последний 1 - для кнопки "Назад"
     return builder.as_markup()
 
 
@@ -52,4 +53,20 @@ def payment_keyboard(lang: str):
         callback_data="payment_usdt"
     )
     builder.adjust(2)
+    return builder.as_markup()
+
+def back_keyboard(lang: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_localization(lang, "back_to_menu"),
+        callback_data="back_to_menu"
+    )
+    return builder.as_markup()
+
+def back_to_menu_keyboard(lang: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_localization(lang, "back_to_menu"),
+        callback_data="back_to_menu"
+    )
     return builder.as_markup()
