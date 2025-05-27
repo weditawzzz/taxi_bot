@@ -88,6 +88,115 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "❌ Order cancelled."
     },
 
+    # НОВЫЕ ПЕРЕВОДЫ ДЛЯ АЛКОГОЛЯ
+    "enter_shopping_list": {
+        "pl": "🛒 Wprowadź listę zakupów (np. 1x Żubr 0.5L, 2x Żywiec, 1x Vodka):",
+        "ru": "🛒 Введите список покупок (напр. 1x Пиво 0.5Л, 2x Водка, 1x Вино):",
+        "en": "🛒 Enter shopping list (e.g. 1x Beer 0.5L, 2x Vodka, 1x Wine):"
+    },
+
+    "enter_budget": {
+        "pl": "💰 Podaj maksymalny budżet na zakupy (w zł):",
+        "ru": "💰 Укажите максимальный бюджет на покупки (в zł):",
+        "en": "💰 Enter maximum budget for purchases (in zł):"
+    },
+
+    "invalid_budget": {
+        "pl": "❌ Nieprawidłowy budżet! Wprowadź liczbę:",
+        "ru": "❌ Неверный бюджет! Введите число:",
+        "en": "❌ Invalid budget! Enter a number:"
+    },
+
+    "budget_too_low": {
+        "pl": "❌ Minimalna kwota zakupów to 20 zł",
+        "ru": "❌ Минимальная сумма покупок 20 zł",
+        "en": "❌ Minimum purchase amount is 20 zł"
+    },
+
+    "confirm_age": {
+        "pl": "🔞 Czy masz ukończone 18 lat?",
+        "ru": "🔞 Вам есть 18 лет?",
+        "en": "🔞 Are you 18+ years old?"
+    },
+
+    "age_warning": {
+        "pl": "🚫 Dostawa alkoholu możliwa tylko dla osób pełnoletnich!",
+        "ru": "🚫 Доставка алкоголя только для совершеннолетних!",
+        "en": "🚫 Alcohol delivery only for adults!"
+    },
+
+    "enter_alcohol_address": {
+        "pl": "📍 Podaj adres dostawy:",
+        "ru": "📍 Укажите адрес доставки:",
+        "en": "📍 Enter delivery address:"
+    },
+
+    "alcohol_shop_tariff_info": {
+        "pl": "🚚 <b>Zakup i dostawa alkoholu:</b>\n\n• Opłata za usługę: 25 zł + 15 zł\n• Opłata za km: 3 zł/km\n• Taryfa nocna (22:00-6:00): +30%\n• Dodatkowo: koszt zakupów\n• Płatność <u>wyłącznie gotówką</u>",
+        "ru": "🚚 <b>Покупка и доставка алкоголя:</b>\n\n• Плата за услугу: 25 zł + 15 zł\n• Плата за км: 3 zł/км\n• Ночной тариф (22:00-6:00): +30%\n• Дополнительно: стоимость покупок\n• Оплата <u>только наличными</u>",
+        "en": "🚚 <b>Alcohol purchase and delivery:</b>\n\n• Service fee: 25 zł + 15 zł\n• Fee per km: 3 zł/km\n• Night tariff (22:00-6:00): +30%\n• Additionally: purchase cost\n• Payment <u>cash only</u>"
+    },
+
+    "alcohol_cash_only": {
+        "pl": "⚠️ <b>Uwaga!</b> Przy dostawie alkoholu możliwa jest <u>wyłącznie płatność gotówką</u>!",
+        "ru": "⚠️ <b>Внимание!</b> При доставке алкоголя возможна <u>только оплата наличными</u>!",
+        "en": "⚠️ <b>Attention!</b> For alcohol delivery <u>only cash payment</u> is possible!"
+    },
+
+    "alcohol_shop_receipt_info": {
+        "pl": "📝 <b>Uwaga!</b> Kierowca kupi alkohol w wybranym sklepie i przywiezie paragon. Koszt zakupów należy opłacić <u>dodatkowo</u> do opłaty za usługę.",
+        "ru": "📝 <b>Внимание!</b> Водитель купит алкоголь в выбранном магазине и привезет чек. Стоимость покупок нужно оплатить <u>дополнительно</u> к плате за услугу.",
+        "en": "📝 <b>Attention!</b> Driver will buy alcohol at selected shop and bring receipt. Purchase cost must be paid <u>additionally</u> to service fee."
+    },
+
+    "alcohol_service_description": {
+        "pl": "🛒 <b>Usługa zakupu i dostawy alkoholu</b>\n\nKierowca kupi alkohol zgodnie z Twoją listą i dostawi pod wskazany adres.",
+        "ru": "🛒 <b>Услуга покупки и доставки алкоголя</b>\n\nВодитель купит алкоголь согласно вашему списку и доставит по указанному адресу.",
+        "en": "🛒 <b>Alcohol purchase and delivery service</b>\n\nDriver will buy alcohol according to your list and deliver to specified address."
+    },
+
+    "alcohol_order_waiting": {
+        "pl": "🕒 <b>Zamówienie oczekuje na akceptację przez kierowcę</b>\n\nPo akceptacji otrzymasz:\n- Dane kierowcy i pojazdu\n- Szacowany czas realizacji",
+        "ru": "🕒 <b>Заказ ожидает принятия водителем</b>\n\nПосле подтверждения вы получите:\n- Данные водителя и автомобиля\n- Примерное время выполнения",
+        "en": "🕒 <b>Order awaiting driver acceptance</b>\n\nAfter confirmation you will receive:\n- Driver and vehicle details\n- Estimated completion time"
+    },
+
+    "back_to_menu": {
+        "pl": "↩️ Wróć do menu",
+        "ru": "↩️ Назад в меню",
+        "en": "↩️ Back to menu"
+    },
+
+    "route_error": {
+        "pl": "❌ Błąd trasy. Sprawdź adresy.",
+        "ru": "❌ Ошибка маршрута. Проверьте адреса.",
+        "en": "❌ Route error. Check addresses."
+    },
+
+    "yes": {
+        "pl": "✔ Tak",
+        "ru": "✔ Да",
+        "en": "✔ Yes"
+    },
+
+    "no": {
+        "pl": "✖ Nie",
+        "ru": "✖ Нет",
+        "en": "✖ No"
+    },
+
+    "order_error": {
+        "pl": "❌ <b>Błąd podczas tworzenia zamówienia</b>",
+        "ru": "❌ <b>Ошибка при создании заказа</b>",
+        "en": "❌ <b>Error creating order</b>"
+    },
+
+    "start": {
+        "pl": "👋 Witaj! Wybierz usługę:",
+        "ru": "👋 Добро пожаловать! Выберите услугу:",
+        "en": "👋 Hello! Choose service:"
+    },
+
     # Ошибки
     "address_not_found": {
         "pl": "❌ Nie mogę znaleźć tego adresu. Spróbuj ponownie:",

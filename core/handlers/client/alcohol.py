@@ -13,7 +13,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 try:
-    from states import AlcoholOrderState
+    from core.states import AlcoholOrderState
 except ImportError:
     # Fallback - создаем состояния локально
     from aiogram.fsm.state import State, StatesGroup
@@ -47,9 +47,9 @@ def get_localization(lang: str, key: str) -> str:
             "confirm_age": "🔞 Czy masz ukończone 18 lat?",
             "age_warning": "🚫 Dostawa alkoholu możliwa tylko dla osób pełnoletnich!",
             "enter_alcohol_address": "📍 Podaj adres dostawy:",
-            "alcohol_shop_tariff_info": "🚚 <b>Zakup i dostawa alkoholu:</b>\n\n• Opłata za usługę: 25 zł + 15 zł\n• Opłata za km: 3 zł/km\n• Taryfa nocna (22:00-6:00): +30%\n• Dodatkowo: koszt zakupów\n• Płatność <u>wyłącznie gotówką</u>",
+            "alcohol_shop_tariff_info": "🚚 <b>Dostawa alkoholu:</b>\n\n• Stała opłata: 20 zł\n• Dostawa w ciągu 60 minut\n• Płatność <u>wyłącznie gotówką</u>",
             "alcohol_cash_only": "⚠️ <b>Uwaga!</b> Przy dostawie alkoholu możliwa jest <u>wyłącznie płatność gotówką</u>!",
-            "alcohol_shop_receipt_info": "📝 <b>Uwaga!</b> Kierowca kupi alkohol w wybranym sklepie i przywiezie paragon. Koszt zakupów należy opłacić <u>dodatkowo</u> do opłaty za usługę.",
+            "alcohol_shop_receipt_info": "📝 <b>Uwaga!</b> Kierowca przywiezie paragon za alkohol, który należy opłacić <u>dodatkowo</u> do kosztów dostawy.",
             "back_to_menu": "↩️ Wróć do menu",
             "route_error": "❌ Błąd trasy. Sprawdź adresy.",
             "yes": "✔ Tak",
@@ -57,7 +57,8 @@ def get_localization(lang: str, key: str) -> str:
             "alcohol_service_description": "🛒 <b>Usługa zakupu i dostawy alkoholu</b>\n\nKierowca kupi alkohol zgodnie z Twoją listą i dostawi pod wskazany adres.",
             "alcohol_order_waiting": "🕒 <b>Zamówienie oczekuje na akceptację przez kierowcę</b>\n\nPo akceptacji otrzymasz:\n- Dane kierowcy i pojazdu\n- Szacowany czas realizacji",
             "order_cancelled": "❌ <b>Zamówienie anulowane</b>",
-            "order_error": "❌ <b>Błąd podczas tworzenia zamówienia</b>"
+            "order_error": "❌ <b>Błąd podczas tworzenia zamówienia</b>",
+            "start": "👋 Witaj! Wybierz usługę:"
         },
         "ru": {
             "start": "👋 Добро пожаловать! Выберите услугу:",
@@ -68,9 +69,9 @@ def get_localization(lang: str, key: str) -> str:
             "confirm_age": "🔞 Вам есть 18 лет?",
             "age_warning": "🚫 Доставка алкоголя только для совершеннолетних!",
             "enter_alcohol_address": "📍 Укажите адрес доставки:",
-            "alcohol_shop_tariff_info": "🚚 <b>Покупка и доставка алкоголя:</b>\n\n• Плата за услугу: 25 zł + 15 zł\n• Плата за км: 3 zł/км\n• Ночной тариф (22:00-6:00): +30%\n• Дополнительно: стоимость покупок\n• Оплата <u>только наличными</u>",
+            "alcohol_shop_tariff_info": "🚚 <b>Доставка алкоголя:</b>\n\n• Фиксированная плата: 20 zł\n• Доставка в течение 60 минут\n• Оплата <u>только наличными</u>",
             "alcohol_cash_only": "⚠️ <b>Внимание!</b> При доставке алкоголя возможна <u>только оплата наличными</u>!",
-            "alcohol_shop_receipt_info": "📝 <b>Внимание!</b> Водитель купит алкоголь в выбранном магазине и привезет чек. Стоимость покупок нужно оплатить <u>дополнительно</u> к плате за услугу.",
+            "alcohol_shop_receipt_info": "📝 <b>Внимание!</b> Водитель привезет чек за алкоголь, который нужно оплатить <u>дополнительно</u> к стоимости доставки.",
             "back_to_menu": "↩️ Назад в меню",
             "route_error": "❌ Ошибка маршрута. Проверьте адреса.",
             "yes": "✔ Да",
@@ -78,7 +79,8 @@ def get_localization(lang: str, key: str) -> str:
             "alcohol_service_description": "🛒 <b>Услуга покупки и доставки алкоголя</b>\n\nВодитель купит алкоголь согласно вашему списку и доставит по указанному адресу.",
             "alcohol_order_waiting": "🕒 <b>Заказ ожидает принятия водителем</b>\n\nПосле подтверждения вы получите:\n- Данные водителя и автомобиля\n- Примерное время выполнения",
             "order_cancelled": "❌ <b>Заказ отменен</b>",
-            "order_error": "❌ <b>Ошибка при создании заказа</b>"
+            "order_error": "❌ <b>Ошибка при создании заказа</b>",
+            "start": "👋 Добро пожаловать! Выберите услугу:"
         },
         "en": {
             "start": "👋 Hello! Choose service:",
@@ -89,9 +91,9 @@ def get_localization(lang: str, key: str) -> str:
             "confirm_age": "🔞 Are you 18+ years old?",
             "age_warning": "🚫 Alcohol delivery only for adults!",
             "enter_alcohol_address": "📍 Enter delivery address:",
-            "alcohol_shop_tariff_info": "🚚 <b>Alcohol purchase and delivery:</b>\n\n• Service fee: 25 zł + 15 zł\n• Fee per km: 3 zł/km\n• Night tariff (22:00-6:00): +30%\n• Additionally: purchase cost\n• Payment <u>cash only</u>",
+            "alcohol_shop_tariff_info": "🚚 <b>Alcohol delivery:</b>\n\n• Fixed fee: 20 zł\n• Delivery within 60 minutes\n• Payment <u>cash only</u>",
             "alcohol_cash_only": "⚠️ <b>Attention!</b> For alcohol delivery <u>only cash payment</u> is possible!",
-            "alcohol_shop_receipt_info": "📝 <b>Attention!</b> Driver will buy alcohol at selected shop and bring receipt. Purchase cost must be paid <u>additionally</u> to service fee.",
+            "alcohol_shop_receipt_info": "📝 <b>Attention!</b> Driver will bring receipt for alcohol that must be paid <u>additionally</u> to delivery cost.",
             "back_to_menu": "↩️ Back to menu",
             "route_error": "❌ Route error. Check addresses.",
             "yes": "✔ Yes",
@@ -99,7 +101,8 @@ def get_localization(lang: str, key: str) -> str:
             "alcohol_service_description": "🛒 <b>Alcohol purchase and delivery service</b>\n\nDriver will buy alcohol according to your list and deliver to specified address.",
             "alcohol_order_waiting": "🕒 <b>Order awaiting driver acceptance</b>\n\nAfter confirmation you will receive:\n- Driver and vehicle details\n- Estimated completion time",
             "order_cancelled": "❌ <b>Order cancelled</b>",
-            "order_error": "❌ <b>Error creating order</b>"
+            "order_error": "❌ <b>Error creating order</b>",
+            "start": "👋 Hello! Choose service:"
         }
     }
     return translations.get(lang, {}).get(key, key)
@@ -110,7 +113,7 @@ async def get_user_language(telegram_id: int) -> str:
     try:
         user_service = UserService()
         user = await user_service.get_user_by_telegram_id(telegram_id)
-        return user.language if user else "pl"
+        return user.language if user and user.language else "pl"
     except Exception:
         return "pl"
 
@@ -129,13 +132,7 @@ def back_keyboard(lang: str):
     return builder.as_markup()
 
 
-def main_menu_keyboard(lang: str):
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🚖 Przejazd miejski", callback_data="menu_city_ride")
-    builder.button(text="🍷 Dostawa alkoholu", callback_data="menu_alcohol")
-    builder.button(text="✈️ Lotnisko", callback_data="menu_airport")
-    builder.adjust(2, 1)
-    return builder.as_markup()
+
 
 
 # Функции расчета
@@ -146,23 +143,8 @@ def calculate_distance(origin: str, destination: str) -> float:
 
 
 def calculate_alcohol_delivery_price(distance: float) -> float:
-    """Расчет цены доставки алкоголя"""
-    from datetime import datetime, time
-
-    base = 25
-    service_fee = 15
-    per_km = 3
-    total = base + service_fee + (distance * per_km)
-
-    # Ночной тариф (22:00-6:00)
-    now = datetime.now().time()
-    night_start = time(22, 0)
-    night_end = time(6, 0)
-
-    if now >= night_start or now <= night_end:
-        total *= 1.3  # +30%
-
-    return round(total, 2)
+    """Расчет цены доставки алкоголя - фиксированная ставка"""
+    return 20.0  # Фиксированная цена 20 zł
 
 
 async def save_alcohol_order(user_id: int, order_data: dict) -> int:
@@ -232,13 +214,22 @@ async def notify_driver_simple(order_id: int, order_data: dict):
 
 
 # Обработчики callback-ов от главного меню
-@router.callback_query(F.data == "confirm_yes")
-async def handle_confirm_yes_from_menu(callback: CallbackQuery, state: FSMContext):
-    """Обработка подтверждения из главного меню"""
-    current_state = await state.get_state()
+@router.callback_query(F.data == "confirm_yes", AlcoholOrderState.waiting_products)
+async def handle_confirm_yes_start_order(callback: CallbackQuery, state: FSMContext):
+    """Обработка подтверждения начала заказа алкоголя"""
+    lang = await get_user_language(callback.from_user.id)
 
-    if current_state == AlcoholOrderState.confirmation.state:
-        await confirm_alcohol_order(callback, state)
+    await callback.message.answer(
+        text=get_localization(lang, "enter_shopping_list"),
+        reply_markup=back_keyboard(lang)
+    )
+    await state.set_state(AlcoholOrderState.waiting_budget)
+
+
+@router.callback_query(F.data == "confirm_yes", AlcoholOrderState.confirmation)
+async def handle_confirm_yes_final(callback: CallbackQuery, state: FSMContext):
+    """Обработка финального подтверждения заказа"""
+    await confirm_alcohol_order(callback, state)
 
 
 @router.callback_query(F.data == "confirm_no")
@@ -253,10 +244,11 @@ async def start_alcohol_order(callback: CallbackQuery, state: FSMContext):
     lang = await get_user_language(callback.from_user.id)
 
     await callback.message.edit_text(
-        text=get_localization(lang, "enter_shopping_list"),
-        reply_markup=back_keyboard(lang)
+        text=get_localization(lang, "alcohol_service_description"),
+        parse_mode="HTML",
+        reply_markup=confirm_keyboard(lang)
     )
-    await state.set_state(AlcoholOrderState.waiting_budget)
+    await state.set_state(AlcoholOrderState.waiting_products)
 
 
 
@@ -269,9 +261,15 @@ async def process_shopping_list(message: Message, state: FSMContext):
 
     if message.text == get_localization(lang, "back_to_menu"):
         await state.clear()
+
+        from core.keyboards import get_main_menu_keyboard
+        from core.models import UserRole
+
+        keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
         await message.answer(
             text=get_localization(lang, "start"),
-            reply_markup=main_menu_keyboard(lang)
+            reply_markup=keyboard
         )
         return
 
@@ -290,9 +288,15 @@ async def process_budget(message: Message, state: FSMContext):
 
     if message.text == get_localization(lang, "back_to_menu"):
         await state.clear()
+
+        from core.keyboards import get_main_menu_keyboard
+        from core.models import UserRole
+
+        keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
         await message.answer(
             text=get_localization(lang, "start"),
-            reply_markup=main_menu_keyboard(lang)
+            reply_markup=keyboard
         )
         return
 
@@ -320,8 +324,25 @@ async def process_age_confirmation(callback: CallbackQuery, state: FSMContext):
     is_adult = callback.data.split("_")[1] == "yes"
 
     if not is_adult:
-        await callback.message.edit_text(get_localization(lang, "age_warning"))
+        # Если несовершеннолетний, возвращаем в главное меню
         await state.clear()
+
+        # Сначала редактируем текущее сообщение
+        await callback.message.edit_text(
+            text=get_localization(lang, "age_warning"),
+            parse_mode="HTML"
+        )
+
+        # Затем отправляем новое сообщение с главным меню
+        from core.keyboards import get_main_menu_keyboard
+        from core.models import UserRole
+
+        keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
+        await callback.message.answer(
+            text=get_localization(lang, "start"),
+            reply_markup=keyboard
+        )
         return
 
     await callback.message.answer(
@@ -344,9 +365,15 @@ async def process_delivery_address(message: Message, state: FSMContext):
 
     if message.text == get_localization(lang, "back_to_menu"):
         await state.clear()
+
+        from core.keyboards import get_main_menu_keyboard
+        from core.models import UserRole
+
+        keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
         await message.answer(
             text=get_localization(lang, "start"),
-            reply_markup=main_menu_keyboard(lang)
+            reply_markup=keyboard
         )
         return
 
@@ -363,17 +390,42 @@ async def process_delivery_address(message: Message, state: FSMContext):
         )
 
         # Используем локализованные строки для заказа
-        order_text = (
-            f"🛒 <b>{get_localization(lang, 'alcohol_service_description').replace('<b>', '').replace('</b>', '')}</b>\n\n"
-            f"📋 <b>Lista zakupów:</b>\n<i>{data['products']}</i>\n\n"
-            f"💰 <b>Budżet na zakupy:</b> {data['budget']} zł\n"
-            f"🏠 <b>Adres dostawy:</b>\n{message.text}\n"
-            f"📏 <b>Odległość:</b> ~{distance:.1f} km\n\n"
-            f"💵 <b>Opłata za usługę:</b> {price} zł\n"
-            f"💵 <b>+ koszt zakupów</b> (do {data['budget']} zł)\n\n"
-            f"💰 <b>Płatność:</b> gotówka\n"
-            f"🕒 <b>Czas realizacji:</b> 30-45 minut"
-        )
+        if lang == "pl":
+            order_text = (
+                f"🍾 <b>Dostawa alkoholu</b>\n\n"
+                f"📋 <b>Lista zakupów:</b>\n<i>{data['products']}</i>\n\n"
+                f"💰 <b>Budżet na zakupy:</b> {data['budget']} zł\n"
+                f"🏠 <b>Adres dostawy:</b>\n{message.text}\n"
+                f"📏 <b>Odległość:</b> ~{distance:.1f} km\n\n"
+                f"💵 <b>Opłata za dostawę:</b> 20 zł\n"
+                f"💵 <b>+ koszt zakupów</b> (do {data['budget']} zł)\n\n"
+                f"💰 <b>Płatność:</b> gotówka\n"
+                f"🕒 <b>Czas realizacji:</b> 30-45 minut"
+            )
+        elif lang == "ru":
+            order_text = (
+                f"🍾 <b>Доставка алкоголя</b>\n\n"
+                f"📋 <b>Список покупок:</b>\n<i>{data['products']}</i>\n\n"
+                f"💰 <b>Бюджет на покупки:</b> {data['budget']} zł\n"
+                f"🏠 <b>Адрес доставки:</b>\n{message.text}\n"
+                f"📏 <b>Расстояние:</b> ~{distance:.1f} км\n\n"
+                f"💵 <b>Плата за доставку:</b> 20 zł\n"
+                f"💵 <b>+ стоимость покупок</b> (до {data['budget']} zł)\n\n"
+                f"💰 <b>Оплата:</b> наличные\n"
+                f"🕒 <b>Время выполнения:</b> 30-45 минут"
+            )
+        else:  # en
+            order_text = (
+                f"🍾 <b>Alcohol delivery</b>\n\n"
+                f"📋 <b>Shopping list:</b>\n<i>{data['products']}</i>\n\n"
+                f"💰 <b>Shopping budget:</b> {data['budget']} zł\n"
+                f"🏠 <b>Delivery address:</b>\n{message.text}\n"
+                f"📏 <b>Distance:</b> ~{distance:.1f} km\n\n"
+                f"💵 <b>Delivery fee:</b> 20 zł\n"
+                f"💵 <b>+ purchase cost</b> (up to {data['budget']} zł)\n\n"
+                f"💰 <b>Payment:</b> cash\n"
+                f"🕒 <b>Completion time:</b> 30-45 minutes"
+            )
 
         await message.answer(
             text=order_text,
@@ -423,9 +475,22 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
     """Отмена заказа"""
     lang = await get_user_language(callback.from_user.id)
     await state.clear()
+
+    # Сначала редактируем текущее сообщение без клавиатуры
     await callback.message.edit_text(
+        text=get_localization(lang, "order_cancelled"),
+        parse_mode="HTML"
+    )
+
+    # Затем отправляем новое сообщение с главным меню
+    from core.keyboards import get_main_menu_keyboard
+    from core.models import UserRole
+
+    keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
+    await callback.message.answer(
         text=get_localization(lang, "start"),
-        reply_markup=main_menu_keyboard(lang)
+        reply_markup=keyboard
     )
 
 
@@ -434,7 +499,19 @@ async def back_to_menu_handler(callback: CallbackQuery, state: FSMContext):
     """Возврат в главное меню"""
     await state.clear()
     lang = await get_user_language(callback.from_user.id)
+
+    # Сначала редактируем текущее сообщение без клавиатуры
     await callback.message.edit_text(
+        text=get_localization(lang, "start")
+    )
+
+    # Затем отправляем новое сообщение с главным меню
+    from core.keyboards import get_main_menu_keyboard
+    from core.models import UserRole
+
+    keyboard = get_main_menu_keyboard(lang, UserRole.CLIENT)
+
+    await callback.message.answer(
         text=get_localization(lang, "start"),
-        reply_markup=main_menu_keyboard(lang)
+        reply_markup=keyboard
     )

@@ -8,7 +8,7 @@ from aiogram import types, F, Router
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-
+from core.handlers.client.alcohol import router as alcohol_router
 from core.services import UserService
 from core.models import UserRole
 from core.exceptions import TaxiBotException, ValidationError, NotFoundError
@@ -132,42 +132,41 @@ async def order_taxi(message: Message, state: FSMContext) -> None:
 
 @client_router.message(F.text.in_(["🍷 Dostawa alkoholu", "🍷 Доставка алкоголя", "🍷 Alcohol Delivery"]))
 async def order_alcohol(message: Message, state: FSMContext) -> None:
-    """Начать процесс заказа алкоголя"""
+    """Начать процесс заказа алкоголя без показа списка магазинов"""
     try:
-        from config import Config
-
         # Получаем язык пользователя
         language = await get_user_language(message.from_user.id)
-        lang_code = language.value
 
-        # Формируем список доступных магазинов
-        shops_info = "🏪 <b>Dostępne sklepy:</b>\n\n"
+        # Локализованные тексты
+        alcohol_texts = {
+            Language.PL: {
+                'service_info': '🛒 <b>Usługa zakupu i dostawy alkoholu</b>\n\nKierowca kupi alkohol zgodnie z Twoją listą i dostawi pod wskazany adres.',
+                'confirm_yes': '✔ Tak',
+                'confirm_no': '✖ Nie'
+            },
+            Language.RU: {
+                'service_info': '🛒 <b>Услуга покупки и доставки алкоголя</b>\n\nВодитель купит алкоголь согласно вашему списку и доставит по указанному адресу.',
+                'confirm_yes': '✔ Да',
+                'confirm_no': '✖ Нет'
+            },
+            Language.EN: {
+                'service_info': '🛒 <b>Alcohol purchase and delivery service</b>\n\nDriver will buy alcohol according to your list and deliver to specified address.',
+                'confirm_yes': '✔ Yes',
+                'confirm_no': '✖ No'
+            }
+        }
 
-        for shop_data in Config.ALCOHOL_SHOPS.values():
-            # Иконки по типу магазина
-            shop_type_icon = {
-                "convenience": "🏪",
-                "market": "🛒",
-                "gas_station": "⛽"
-            }.get(shop_data.get('type', 'convenience'), "🏪")
-
-            # Иконка по времени работы
-            hours_icon = "🟢" if shop_data['hours'] == "24/7" else "🟡"
-
-            shops_info += f"{shop_type_icon} {hours_icon} <b>{shop_data['name']}</b>\n"
-            shops_info += f"📍 {shop_data['address']}\n"
-            shops_info += f"🕒 {shop_data['hours']}\n\n"
-
-        shops_info += "ℹ️ <i>Kierowca wybierze najbliższy sklep i kupi produkty zgodnie z Twoją listą</i>"
+        # Берем тексты для текущего языка
+        texts = alcohol_texts.get(language, alcohol_texts[Language.PL])
 
         # Создаем инлайн-клавиатуру
         from aiogram.utils.keyboard import InlineKeyboardBuilder
         builder = InlineKeyboardBuilder()
-        builder.button(text="✔ Tak", callback_data="confirm_yes")
-        builder.button(text="✖ Nie", callback_data="confirm_no")
+        builder.button(text=texts['confirm_yes'], callback_data="confirm_yes")
+        builder.button(text=texts['confirm_no'], callback_data="confirm_no")
 
         await message.answer(
-            text=shops_info,
+            text=texts['service_info'],
             parse_mode="HTML",
             reply_markup=builder.as_markup()
         )
@@ -272,10 +271,9 @@ async def help_command(message: Message) -> None:
 
 <b>How to order alcohol delivery:</b>
 1. Press "🍷 Alcohol Delivery"
-2. View available 24/7 shops
-3. Enter shopping list
-4. Set budget (min 20 zł)
-5. Confirm age (18+) and address
+2. Enter shopping list
+3. Set budget (min 20 zł)
+4. Confirm age (18+) and address
 
 <b>Other features:</b>
 • 📋 View ride history
@@ -297,10 +295,9 @@ async def help_command(message: Message) -> None:
 
 <b>Как заказать доставку алкоголя:</b>
 1. Нажмите "🍷 Доставка алкоголя"
-2. Просмотрите доступные круглосуточные магазины
-3. Введите список покупок
-4. Укажите бюджет (мин 20 zł)
-5. Подтвердите возраст (18+) и адрес
+2. Введите список покупок
+3. Укажите бюджет (мин 20 zł)
+4. Подтвердите возраст (18+) и адрес
 
 <b>Другие функции:</b>
 • 📋 Просмотр истории поездок
@@ -322,10 +319,9 @@ async def help_command(message: Message) -> None:
 
 <b>Jak zamówić dostawę alkoholu:</b>
 1. Naciśnij "🍷 Dostawa alkoholu"
-2. Zobacz dostępne sklepy 24/7
-3. Wpisz listę zakupów
-4. Ustaw budżet (min 20 zł)
-5. Potwierdź wiek (18+) i adres
+2. Wpisz listę zakupów
+3. Ustaw budżet (min 20 zł)
+4. Potwierdź wiek (18+) i adres
 
 <b>Inne funkcje:</b>
 • 📋 Przeglądanie historii przejazdów

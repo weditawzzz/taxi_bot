@@ -19,18 +19,7 @@ async def notify_driver_about_ride(ride_id: int, ride_data: dict):
 
         # Проверяем тип заказа
         if ride_data.get('notes', '').startswith('ALCOHOL DELIVERY'):
-            # Заказ алкоголя
-            shops_list = ""
-            for shop_data in Config.ALCOHOL_SHOPS.values():
-                shop_type_icon = {
-                    "convenience": "🏪",
-                    "market": "🛒",
-                    "gas_station": "⛽"
-                }.get(shop_data.get('type', 'convenience'), "🏪")
-
-                hours_icon = "🟢" if shop_data['hours'] == "24/7" else "🟡"
-                shops_list += f"{shop_type_icon} {hours_icon} <b>{shop_data['name']}</b>\n"
-                shops_list += f"📍 {shop_data['address']} ({shop_data['hours']})\n\n"
+            # Заказ алкоголя БЕЗ списка магазинов
 
             # Извлекаем информацию из notes
             notes = ride_data.get('notes', '')
@@ -43,19 +32,18 @@ async def notify_driver_about_ride(ride_id: int, ride_data: dict):
                 budget = notes.split("Budget:")[1].split("zł")[0].strip()
 
             text = (
-                "🛒 <b>ZAKUP I DOSTAWA ALKOHOLU</b>\n\n"
+                "🛒 <b>DOSTAWA ALKOHOLU</b>\n\n"
                 f"📝 <b>Lista zakupów:</b>\n{products}\n\n"
                 f"💰 <b>Budżet klienta:</b> {budget} zł\n"
                 f"📍 <b>Dostawa na:</b> {ride_data.get('destination_address', 'N/A')}\n"
                 f"📏 <b>Odległość:</b> ~{ride_data.get('distance_km', 5):.1f} km\n"
-                f"💵 <b>Twoja opłata:</b> {ride_data.get('estimated_price', 0)} zł\n\n"
-                f"🏪 <b>Dostępne sklepy:</b>\n{shops_list}"
+                f"💵 <b>Twoja opłata:</b> 20 zł\n\n"
                 f"ℹ️ <b>Instrukcje:</b>\n"
-                f"1. Wybierz najbliższy sklep\n"
+                f"1. Wybierz najbliższy sklep z alkoholem\n"
                 f"2. Kup produkty zgodnie z listą\n"
                 f"3. Zachowaj paragon fiskalny!\n"
                 f"4. Dostarcz + sprawdź dokumenty (18+)\n"
-                f"5. Odbierz: {ride_data.get('estimated_price', 0)} zł + koszt zakupów"
+                f"5. Odbierz: 20 zł + koszt zakupów"
             )
         else:
             # Обычный заказ такси
