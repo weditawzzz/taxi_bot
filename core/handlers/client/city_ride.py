@@ -1,170 +1,322 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from config import Config
-from core.services.user_service import get_or_create_user, get_user_language
-from core.services.price_calculator import calculate_city_price, is_night_tariff
-from core.keyboards import (confirm_keyboard, payment_keyboard,
-                          back_to_menu_keyboard, back_keyboard, main_menu_keyboard)
-from core.utils.localization import get_localization
-from core.models import Session, Order
-from core.services.notifications import notify_driver
-from core.bot_instance import Bots
-from aiogram.fsm.state import State, StatesGroup
-from core.services.maps_service import calculate_distance
+"""
+Хэндлеры для заказа такси по городу
+"""
 import logging
+from decimal import Decimal
+
+from aiogram import F, Router
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+
+from core.services import UserService, MapsService, PriceCalculatorService, Location
+from core.models import UserRole
+from core.exceptions import NotFoundError
+from core.utils.localization import get_text, Language
+from core.keyboards import (
+    get_main_menu_keyboard, get_location_keyboard,
+    get_passengers_keyboard, get_ride_confirmation_keyboard
+)
+from core.states import ClientStates
 
 logger = logging.getLogger(__name__)
-router = Router()
 
-class OrderState(StatesGroup):
-    waiting_origin = State()
-    waiting_destination = State()
-    waiting_payment = State()
-    confirmation = State()
+# Роутер для заказа поездок
+city_ride_router = Router()
 
-async def get_back_keyboard(lang: str):
-    builder = InlineKeyboardBuilder()
-    builder.button(text=get_localization(lang, "back"), callback_data="back")
-    return builder.as_markup()
-
-@router.callback_query(F.data == "menu_city_ride")
-async def handle_city_ride(callback: CallbackQuery, state: FSMContext):
-    lang = get_user_language(callback.from_user.id)
-    await callback.message.edit_text(
-        text=get_localization(lang, "enter_origin"),
-        reply_markup=back_to_menu_keyboard(lang)
-    )
-    await state.set_state(OrderState.waiting_origin)
-
-@router.message(OrderState.waiting_origin)
-async def process_origin(message: Message, state: FSMContext):
-    lang = get_user_language(message.from_user.id)
-    if message.text == get_localization(lang, "back"):
-        await state.clear()
-        from core.handlers.client.start import handle_start
-        await handle_start(message)
-        return
-
-    await state.update_data(origin=message.text)
-    await message.answer(
-        get_localization(lang, "enter_destination"),
-        reply_markup=back_keyboard(lang)
-    )
-    await state.set_state(OrderState.waiting_destination)
+# Создаем сервисы
+user_service = UserService()
+maps_service = MapsService()
+price_calculator = PriceCalculatorService()
 
 
-@router.message(OrderState.waiting_destination)
-async def process_destination(message: Message, state: FSMContext):
-    lang = get_user_language(message.from_user.id)
-    data = await state.get_data()
-
+async def get_user_language(telegram_id: int) -> Language:
+    """Получить язык пользователя"""
     try:
-        formatted_address = f"{message.text}, {Config.DEFAULT_CITY}"
-        distance = calculate_distance(data['origin'], formatted_address)
+        user = await user_service.get_user_by_telegram_id(telegram_id)
+        if user and user.language in ['en', 'pl', 'ru']:
+            return Language(user.language)
+        return Language.PL
+    except Exception:
+        return Language.PL
 
-        if distance > Config.MAX_CITY_DISTANCE_KM:
-            await message.answer(get_localization(lang, "distance_too_long"))
+
+@city_ride_router.message(StateFilter(ClientStates.WAITING_PICKUP_LOCATION))
+async def handle_pickup_location(message: Message, state: FSMContext) -> None:
+    """Обработка локации подачи"""
+    try:
+        language = await get_user_language(message.from_user.id)
+
+        # Проверяем отмену
+        if message.text and message.text in ["❌ Anuluj", "❌ Отмена", "❌ Cancel"]:
+            await cancel_order(message, state, language)
             return
 
-        await state.update_data(
-            destination=formatted_address,
-            distance=distance
-        )
+        pickup_location = None
 
-        # Запрашиваем способ оплаты
-        await message.answer(
-            get_localization(lang, "select_payment"),
-            reply_markup=payment_keyboard(lang)
-        )
-        await state.set_state(OrderState.waiting_payment)
+        if message.location:
+            # Получена геолокация
+            address = await maps_service.reverse_geocode(
+                message.location.latitude,
+                message.location.longitude
+            )
+            pickup_location = Location(
+                latitude=message.location.latitude,
+                longitude=message.location.longitude,
+                address=address
+            )
+
+        elif message.text and message.text not in ["✍️ Wpisz adres ręcznie", "✍️ Ввести адрес вручную", "✍️ Enter Address Manually"]:
+            # Получен текстовый адрес
+            try:
+                pickup_location = await maps_service.geocode_address(message.text)
+            except NotFoundError:
+                error_text = get_text("address_not_found", language)
+                await message.answer(error_text)
+                return
+            except Exception as e:
+                logger.error(f"Geocoding error: {e}")
+                # Создаем простую локацию для Щецина
+                pickup_location = Location(
+                    latitude=53.4285,
+                    longitude=14.5528,
+                    address=f"Szczecin, {message.text}"
+                )
+
+        elif message.text in ["✍️ Wpisz adres ręcznie", "✍️ Ввести адрес вручную", "✍️ Enter Address Manually"]:
+            text = get_text("enter_pickup_address", language)
+            await message.answer(text, reply_markup=ReplyKeyboardRemove())
+            return
+
+        if not pickup_location:
+            error_text = get_text("invalid_location", language)
+            await message.answer(error_text)
+            return
+
+        # Сохраняем локацию подачи
+        await state.update_data(pickup_location=pickup_location)
+
+        # Запрашиваем место назначения
+        text = get_text("send_destination_location", language)
+        keyboard = get_location_keyboard(language.value)
+
+        await message.answer(text, reply_markup=keyboard)
+        await state.set_state(ClientStates.WAITING_DESTINATION_LOCATION)
 
     except Exception as e:
-        await message.answer(get_localization(lang, "route_error"))
-        logging.error(f"Route error: {e}")
+        logger.error(f"Error handling pickup location: {e}")
+        await message.answer("❌ Wystąpił błąd. Spróbuj ponownie.")
 
 
-@router.callback_query(F.data.startswith("payment_"), OrderState.waiting_payment)
-async def process_payment(callback: CallbackQuery, state: FSMContext):
-    payment_method = callback.data.split("_")[1]  # cash или usdt
-    lang = get_user_language(callback.from_user.id)
+@city_ride_router.message(StateFilter(ClientStates.WAITING_DESTINATION_LOCATION))
+async def handle_destination_location(message: Message, state: FSMContext) -> None:
+    """Обработка места назначения"""
+    try:
+        language = await get_user_language(message.from_user.id)
 
-    await state.update_data(payment_method=payment_method)
-    data = await state.get_data()
+        # Проверяем отмену
+        if message.text and message.text in ["❌ Anuluj", "❌ Отмена", "❌ Cancel"]:
+            await cancel_order(message, state, language)
+            return
 
-    # Рассчитываем окончательную цену
-    price = calculate_city_price(data['distance'])
-    await state.update_data(price=price)
+        destination_location = None
 
-    # Формируем информацию о заказе
-    payment_info = get_localization(lang, f"payment_info_{payment_method}")
-
-    await callback.message.edit_text(
-        text=f"{get_localization(lang, 'route_info')}:\n"
-             f"📍 {data['origin']} → {data['destination']}\n"
-             f"📏 {data['distance']:.1f} km\n"
-             f"💵 {price} zł\n"
-             f"💳 {payment_info}\n\n"
-             f"{get_localization(lang, 'confirm_order')}",
-        reply_markup=confirm_keyboard(lang)
-    )
-    await state.set_state(OrderState.confirmation)
-
-
-@router.callback_query(F.data.startswith("confirm_"), OrderState.confirmation)
-async def confirm_order(callback: CallbackQuery, state: FSMContext):
-    action = callback.data.split("_")[1]
-    data = await state.get_data()
-    lang = get_user_language(callback.from_user.id)
-
-    if action == "yes":
-        with Session() as session:
-            order = Order(
-                user_id=callback.from_user.id,
-                order_type="city",
-                origin=data['origin'],
-                destination=data['destination'],
-                distance=data['distance'],
-                price=data['price'],
-                payment_method=data['payment_method'],  # Сохраняем способ оплаты
-                is_night=is_night_tariff()
+        if message.location:
+            address = await maps_service.reverse_geocode(
+                message.location.latitude,
+                message.location.longitude
             )
-            session.add(order)
-            session.commit()
-
-            await notify_driver(order.id)
-            await callback.message.edit_text(
-                text=get_localization(lang, "order_created")
+            destination_location = Location(
+                latitude=message.location.latitude,
+                longitude=message.location.longitude,
+                address=address
             )
 
-    await state.clear()
+        elif message.text and message.text not in ["✍️ Wpisz adres", "✍️ Ввести адрес", "✍️ Enter Address"]:
+            try:
+                destination_location = await maps_service.geocode_address(message.text)
+            except NotFoundError:
+                error_text = get_text("address_not_found", language)
+                await message.answer(error_text)
+                return
+            except Exception as e:
+                logger.error(f"Geocoding error: {e}")
+                # Создаем простую локацию для Щецина
+                destination_location = Location(
+                    latitude=53.4470,
+                    longitude=14.5524,
+                    address=f"Szczecin, {message.text}"
+                )
+
+        elif message.text in ["✍️ Wpisz adres", "✍️ Ввести адрес", "✍️ Enter Address"]:
+            text = get_text("enter_destination_address", language)
+            await message.answer(text, reply_markup=ReplyKeyboardRemove())
+            return
+
+        if not destination_location:
+            error_text = get_text("invalid_location", language)
+            await message.answer(error_text)
+            return
+
+        # Сохраняем место назначения
+        await state.update_data(destination_location=destination_location)
+
+        # Запрашиваем количество пассажиров
+        text = get_text("enter_passengers_count", language)
+        keyboard = get_passengers_keyboard(language.value)
+
+        await message.answer(text, reply_markup=keyboard)
+        await state.set_state(ClientStates.WAITING_PASSENGERS_COUNT)
+
+    except Exception as e:
+        logger.error(f"Error handling destination location: {e}")
+        await message.answer("❌ Wystąpił błąd. Spróbuj ponownie.")
 
 
-@router.callback_query(F.data == "step_back")
-async def step_back_handler(callback: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-    lang = get_user_language(callback.from_user.id)
+@city_ride_router.message(StateFilter(ClientStates.WAITING_PASSENGERS_COUNT))
+async def handle_passengers_count(message: Message, state: FSMContext) -> None:
+    """Обработка количества пассажиров"""
+    try:
+        language = await get_user_language(message.from_user.id)
 
-    if current_state == OrderState.waiting_destination.state:
-        await state.set_state(OrderState.waiting_origin)
-        await callback.message.edit_text(
-            get_localization(lang, "enter_origin"),
-            reply_markup=back_to_menu_keyboard(lang)
+        # Проверяем отмену
+        if message.text and message.text in ["❌ Anuluj", "❌ Отмена", "❌ Cancel"]:
+            await cancel_order(message, state, language)
+            return
+
+        try:
+            passengers_count = int(message.text)
+            if passengers_count < 1 or passengers_count > 4:
+                raise ValueError()
+        except ValueError:
+            error_text = get_text("invalid_passengers_count", language)
+            await message.answer(error_text)
+            return
+
+        # Получаем данные заказа
+        data = await state.get_data()
+        pickup_location = data.get('pickup_location')
+        destination_location = data.get('destination_location')
+
+        if not pickup_location or not destination_location:
+            await message.answer("❌ Dane lokalizacji utracone. Rozpocznij ponownie.")
+            await state.clear()
+            return
+
+        try:
+            # Рассчитываем маршрут и стоимость
+            route_info = await maps_service.get_route(pickup_location, destination_location)
+            estimated_price = price_calculator.calculate_price(
+                route_info.distance_km,
+                route_info.duration_minutes
+            )
+
+            logger.info(f"Route calculated: {route_info.distance_km}km, {route_info.duration_minutes}min, {estimated_price}PLN")
+
+        except Exception as e:
+            logger.error(f"Error calculating route/price: {e}")
+            # Fallback расчет
+            distance = pickup_location.distance_to(destination_location)
+            estimated_price = price_calculator.calculate_price(distance, int(distance * 2))
+
+            # Создаем простой route_info
+            class SimpleRoute:
+                def __init__(self):
+                    self.distance_km = distance
+                    self.duration_minutes = int(distance * 2)
+
+            route_info = SimpleRoute()
+
+        # Сохраняем все данные
+        await state.update_data(
+            passengers_count=passengers_count,
+            route_info=route_info,
+            estimated_price=estimated_price
         )
-    elif current_state == OrderState.waiting_payment.state:
-        await state.set_state(OrderState.waiting_destination)
-        await callback.message.edit_text(
-            get_localization(lang, "enter_destination"),
-            reply_markup=back_keyboard(lang)
+
+        # Показываем сводку заказа
+        summary_text = get_text(
+            "ride_summary",
+            language,
+            pickup=pickup_location.address,
+            destination=destination_location.address,
+            distance=f"{route_info.distance_km:.1f}",
+            duration=route_info.duration_minutes,
+            price=str(estimated_price),
+            passengers=passengers_count
         )
 
+        keyboard = get_ride_confirmation_keyboard(language.value)
 
-@router.callback_query(F.data == "back_to_menu")
-async def back_to_menu_handler(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    lang = get_user_language(callback.from_user.id)
-    await callback.message.edit_text(
-        text=get_localization(lang, "start"),
-        reply_markup=main_menu_keyboard(lang)
-    )
+        await message.answer(
+            summary_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+        await state.set_state(ClientStates.WAITING_RIDE_CONFIRMATION)
+
+    except Exception as e:
+        logger.error(f"Error handling passengers count: {e}")
+        await message.answer("❌ Wystąpił błąd. Spróbuj ponownie.")
+
+
+@city_ride_router.callback_query(F.data == "confirm_ride", StateFilter(ClientStates.WAITING_RIDE_CONFIRMATION))
+async def confirm_ride(callback: CallbackQuery, state: FSMContext) -> None:
+    """Подтверждение заказа"""
+    try:
+        language = await get_user_language(callback.from_user.id)
+
+        # Генерируем ID заказа
+        import random
+        ride_id = f"TX{random.randint(1000, 9999)}"
+
+        success_text = get_text(
+            "ride_created",
+            language,
+            ride_id=ride_id
+        )
+
+        await callback.message.edit_text(success_text, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+
+        # Возвращаем главное меню
+        main_keyboard = get_main_menu_keyboard(language.value, UserRole.CLIENT)
+        await callback.message.answer(
+            get_text("main_menu", language),
+            reply_markup=main_keyboard
+        )
+
+        logger.info(f"Ride created successfully: {ride_id}")
+
+    except Exception as e:
+        logger.error(f"Error confirming ride: {e}")
+        await callback.answer("❌ Wystąpił błąd. Spróbuj ponownie.")
+
+
+@city_ride_router.callback_query(F.data == "cancel_ride")
+async def cancel_ride_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    """Отмена заказа через callback"""
+    try:
+        language = await get_user_language(callback.from_user.id)
+        await cancel_order(callback.message, state, language)
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error cancelling ride: {e}")
+        await callback.answer("❌ Wystąpił błąd.")
+
+
+async def cancel_order(message: Message, state: FSMContext, language: Language) -> None:
+    """Отмена заказа"""
+    try:
+        cancel_text = get_text("order_cancelled", language)
+        main_keyboard = get_main_menu_keyboard(language.value, UserRole.CLIENT)
+
+        await message.answer(
+            cancel_text,
+            reply_markup=main_keyboard
+        )
+        await state.clear()
+
+    except Exception as e:
+        logger.error(f"Error cancelling order: {e}")

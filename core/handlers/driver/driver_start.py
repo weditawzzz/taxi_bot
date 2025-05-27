@@ -1,12 +1,10 @@
-# core/handlers/driver/driver_start.py
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from core.keyboards import language_keyboard
 from core.handlers.driver.vehicle_handlers import get_vehicle_keyboard
-from core.services.user_service import get_or_create_user, get_user_language
+from core.services.user_service import get_or_create_user
 from core.models import Session, User
-from core.utils.localization import get_localization
 
 router = Router()
 

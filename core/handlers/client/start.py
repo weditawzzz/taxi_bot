@@ -1,37 +1,341 @@
-# core/handlers/client/start.py
-from aiogram import Router, F
+"""
+Хэндлеры для клиентского бота - начальные команды
+"""
+import logging
+from typing import Optional
+
+from aiogram import types, F, Router
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
-from core.keyboards import language_keyboard, main_menu_keyboard
-from core.services.user_service import get_or_create_user, get_user_language
-from core.models import Session, User
-from core.utils.localization import get_localization
 
-router = Router()
+from core.services import UserService
+from core.models import UserRole
+from core.exceptions import TaxiBotException, ValidationError, NotFoundError
+from core.utils.localization import get_text, Language
+from core.keyboards import get_main_menu_keyboard, get_language_keyboard
+from core.states import ClientStates
+
+logger = logging.getLogger(__name__)
+
+# Роутер для клиентских хэндлеров
+client_router = Router()
+
+# Создаем сервисы
+user_service = UserService()
 
 
-@router.message(CommandStart())
-async def client_start(message: Message):
-    await message.answer(
-        "Выберите язык (клиент):",
-        reply_markup=language_keyboard()
-    )
+async def get_user_language(telegram_id: int) -> Language:
+    """Получить язык пользователя"""
+    try:
+        user = await user_service.get_user_by_telegram_id(telegram_id)
+        if user and user.language in ['en', 'pl', 'ru']:
+            return Language(user.language)
+        return Language.PL  # Польский по умолчанию для Щецина
+    except Exception as e:
+        logger.error(f"Error getting user language: {e}")
+        return Language.PL
 
 
-@router.callback_query(F.data.startswith("lang_"))
-async def set_client_language(callback: CallbackQuery):
-    lang_code = callback.data.split("_")[1]
+async def handle_error(
+    update: types.Update,
+    error: Exception,
+    user_id: int,
+    default_message: str = "Произошла ошибка. Попробуйте позже."
+) -> None:
+    """Обработка ошибок"""
+    try:
+        language = await get_user_language(user_id)
 
-    with Session() as session:
-        user = session.query(User).filter_by(telegram_id=callback.from_user.id).first()
-        if not user:
-            user = User(telegram_id=callback.from_user.id, language=lang_code)
-            session.add(user)
+        if isinstance(error, ValidationError):
+            message = get_text("validation_error", language, error=str(error))
+        elif isinstance(error, NotFoundError):
+            message = get_text("not_found_error", language)
+        elif isinstance(error, TaxiBotException):
+            message = get_text("service_error", language)
         else:
-            user.language = lang_code
-        session.commit()
+            logger.error(f"Unexpected error: {error}", exc_info=True)
+            message = get_text("unexpected_error", language)
 
-    await callback.message.edit_text(
-        text=get_localization(lang_code, "start"),
-        reply_markup=main_menu_keyboard(lang_code)
-    )
+        if isinstance(update, Message):
+            await update.answer(message)
+        elif isinstance(update, CallbackQuery):
+            await update.message.answer(message)
+            await update.answer()
+
+    except Exception as e:
+        logger.error(f"Error in error handler: {e}")
+        try:
+            if isinstance(update, Message):
+                await update.answer(default_message)
+            elif isinstance(update, CallbackQuery):
+                await update.message.answer(default_message)
+                await update.answer()
+        except:
+            pass
+
+
+@client_router.message(Command("start"))
+async def cmd_start(message: Message, state: FSMContext) -> None:
+    """Команда /start"""
+    try:
+        # Очищаем состояние
+        await state.clear()
+
+        # Создаем или обновляем пользователя
+        user = await user_service.get_or_create_user(
+            telegram_id=message.from_user.id,
+            username=message.from_user.username,
+            first_name=message.from_user.first_name,
+            last_name=message.from_user.last_name,
+            role=UserRole.CLIENT
+        )
+
+        language = await get_user_language(message.from_user.id)
+
+        welcome_text = get_text(
+            "welcome_client",
+            language,
+            name=user.first_name or "Friend"
+        )
+
+        keyboard = get_main_menu_keyboard(language.value, UserRole.CLIENT)
+
+        await message.answer(
+            welcome_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        await handle_error(message, e, message.from_user.id)
+
+
+@client_router.message(F.text.in_(["🚖 Zamów taxi", "🚖 Заказать такси", "🚖 Order Taxi"]))
+async def order_taxi(message: Message, state: FSMContext) -> None:
+    """Начать процесс заказа такси"""
+    try:
+        language = await get_user_language(message.from_user.id)
+
+        text = get_text("send_pickup_location", language)
+
+        # Импортируем здесь чтобы избежать циклических импортов
+        from core.keyboards import get_location_keyboard
+        keyboard = get_location_keyboard(language.value)
+
+        await message.answer(text, reply_markup=keyboard)
+        await state.set_state(ClientStates.WAITING_PICKUP_LOCATION)
+
+    except Exception as e:
+        await handle_error(message, e, message.from_user.id)
+
+
+@client_router.message(F.text.in_(["🍷 Dostawa alkoholu", "🍷 Доставка алкоголя", "🍷 Alcohol Delivery"]))
+async def order_alcohol(message: Message, state: FSMContext) -> None:
+    """Начать процесс заказа алкоголя"""
+    try:
+        from config import Config
+
+        # Получаем язык пользователя
+        language = await get_user_language(message.from_user.id)
+        lang_code = language.value
+
+        # Формируем список доступных магазинов
+        shops_info = "🏪 <b>Dostępne sklepy:</b>\n\n"
+
+        for shop_data in Config.ALCOHOL_SHOPS.values():
+            # Иконки по типу магазина
+            shop_type_icon = {
+                "convenience": "🏪",
+                "market": "🛒",
+                "gas_station": "⛽"
+            }.get(shop_data.get('type', 'convenience'), "🏪")
+
+            # Иконка по времени работы
+            hours_icon = "🟢" if shop_data['hours'] == "24/7" else "🟡"
+
+            shops_info += f"{shop_type_icon} {hours_icon} <b>{shop_data['name']}</b>\n"
+            shops_info += f"📍 {shop_data['address']}\n"
+            shops_info += f"🕒 {shop_data['hours']}\n\n"
+
+        shops_info += "ℹ️ <i>Kierowca wybierze najbliższy sklep i kupi produkty zgodnie z Twoją listą</i>"
+
+        # Создаем инлайн-клавиатуру
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        builder = InlineKeyboardBuilder()
+        builder.button(text="✔ Tak", callback_data="confirm_yes")
+        builder.button(text="✖ Nie", callback_data="confirm_no")
+
+        await message.answer(
+            text=shops_info,
+            parse_mode="HTML",
+            reply_markup=builder.as_markup()
+        )
+
+        # Импортируем состояния алкоголя
+        try:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            from states import AlcoholOrderState
+            await state.set_state(AlcoholOrderState.waiting_products)
+        except ImportError:
+            # Fallback - создаем состояние локально
+            from aiogram.fsm.state import State, StatesGroup
+
+            class AlcoholOrderState(StatesGroup):
+                waiting_products = State()
+                waiting_budget = State()
+                waiting_age = State()
+                waiting_address = State()
+                confirmation = State()
+
+            await state.set_state(AlcoholOrderState.waiting_products)
+
+    except Exception as e:
+        logger.error(f"Error starting alcohol order: {e}")
+        await message.answer("⚠️ Модуль доставки алкоголя временно недоступен")
+
+
+@client_router.message(F.text.in_(["📋 Moje przejazdy", "📋 Мои поездки", "📋 My Rides"]))
+async def my_rides(message: Message) -> None:
+    """Показать историю поездок"""
+    try:
+        language = await get_user_language(message.from_user.id)
+
+        text = get_text("rides_history", language)
+        await message.answer(text, parse_mode="HTML")
+
+    except Exception as e:
+        await handle_error(message, e, message.from_user.id)
+
+
+@client_router.message(F.text.in_(["⚙️ Ustawienia", "⚙️ Настройки", "⚙️ Settings"]))
+async def settings(message: Message) -> None:
+    """Настройки пользователя"""
+    try:
+        language = await get_user_language(message.from_user.id)
+
+        text = get_text("settings_menu", language)
+        keyboard = get_language_keyboard()
+
+        await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+    except Exception as e:
+        await handle_error(message, e, message.from_user.id)
+
+
+@client_router.callback_query(F.data.startswith("lang_"))
+async def set_language(callback: CallbackQuery) -> None:
+    """Установка языка"""
+    try:
+        lang_code = callback.data.split("_")[1]
+
+        await user_service.update_user_language(
+            callback.from_user.id,
+            lang_code
+        )
+
+        new_language = Language(lang_code)
+        success_text = get_text("language_changed", new_language)
+
+        await callback.message.edit_text(success_text)
+        await callback.answer()
+
+        # Обновляем главное меню с новым языком
+        main_keyboard = get_main_menu_keyboard(new_language.value, UserRole.CLIENT)
+        await callback.message.answer(
+            get_text("main_menu", new_language),
+            reply_markup=main_keyboard
+        )
+
+    except Exception as e:
+        await handle_error(callback, e, callback.from_user.id)
+
+
+@client_router.message(F.text.in_(["ℹ️ Pomoc", "ℹ️ Помощь", "ℹ️ Help"]))
+async def help_command(message: Message) -> None:
+    """Помощь"""
+    try:
+        language = await get_user_language(message.from_user.id)
+
+        if language == Language.EN:
+            help_text = """
+ℹ️ <b>Help</b>
+
+<b>How to order a taxi:</b>
+1. Press "🚖 Order Taxi"
+2. Send your location or enter pickup address
+3. Enter destination
+4. Choose number of passengers
+5. Confirm the order
+
+<b>How to order alcohol delivery:</b>
+1. Press "🍷 Alcohol Delivery"
+2. View available 24/7 shops
+3. Enter shopping list
+4. Set budget (min 20 zł)
+5. Confirm age (18+) and address
+
+<b>Other features:</b>
+• 📋 View ride history
+• ⚙️ Change language and settings
+• ℹ️ Get help
+
+<b>Support:</b> @taxi_support_bot
+"""
+        elif language == Language.RU:
+            help_text = """
+ℹ️ <b>Помощь</b>
+
+<b>Как заказать такси:</b>
+1. Нажмите "🚖 Заказать такси"
+2. Отправьте локацию или введите адрес подачи
+3. Введите место назначения
+4. Выберите количество пассажиров
+5. Подтвердите заказ
+
+<b>Как заказать доставку алкоголя:</b>
+1. Нажмите "🍷 Доставка алкоголя"
+2. Просмотрите доступные круглосуточные магазины
+3. Введите список покупок
+4. Укажите бюджет (мин 20 zł)
+5. Подтвердите возраст (18+) и адрес
+
+<b>Другие функции:</b>
+• 📋 Просмотр истории поездок
+• ⚙️ Смена языка и настройки
+• ℹ️ Получить помощь
+
+<b>Поддержка:</b> @taxi_support_bot
+"""
+        else:  # Polish
+            help_text = """
+ℹ️ <b>Pomoc</b>
+
+<b>Jak zamówić taxi:</b>
+1. Naciśnij "🚖 Zamów taxi"  
+2. Wyślij lokalizację lub wpisz adres odbioru
+3. Wpisz miejsce docelowe
+4. Wybierz liczbę pasażerów
+5. Potwierdź zamówienie
+
+<b>Jak zamówić dostawę alkoholu:</b>
+1. Naciśnij "🍷 Dostawa alkoholu"
+2. Zobacz dostępne sklepy 24/7
+3. Wpisz listę zakupów
+4. Ustaw budżet (min 20 zł)
+5. Potwierdź wiek (18+) i adres
+
+<b>Inne funkcje:</b>
+• 📋 Przeglądanie historii przejazdów
+• ⚙️ Zmiana języka i ustawień
+• ℹ️ Uzyskaj pomoc
+
+<b>Wsparcie:</b> @taxi_support_bot
+"""
+
+        await message.answer(help_text, parse_mode="HTML")
+
+    except Exception as e:
+        await handle_error(message, e, message.from_user.id)

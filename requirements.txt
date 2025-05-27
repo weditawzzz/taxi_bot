@@ -1,4 +1,21 @@
-aiogram==3.0.0b7
-sqlalchemy>=2.0.0
-python-dotenv>=0.19.0
-apscheduler>=3.10.0
+# Основные зависимости
+aiogram==3.4.1
+
+# База данных и ORM
+sqlalchemy[asyncio]==2.0.25
+aiosqlite==0.19.0
+
+# Конфигурация и окружение
+python-dotenv==1.0.0
+
+# Планировщик задач
+apscheduler==3.10.4
+
+# HTTP клиент для внешних API
+aiohttp==3.9.1
+
+# Геолокация и карты
+geopy==2.4.1
+
+# Утилиты
+python-dateutil==2.8.2

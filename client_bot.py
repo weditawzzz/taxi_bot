@@ -1,15 +1,81 @@
+"""
+Клиентский бот для заказа такси
+"""
 import asyncio
-from aiogram import Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
-from core.bot_instance import Bots
-from core.handlers.client import start, city_ride, alcohol
+import logging
+import sys
+import os
+
+# Добавляем текущую папку в путь Python
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+
+from taxi_bot.core.config import config
+from taxi_bot.core.database import init_database, close_database
+from taxi_bot.core.handlers.client.start import client_router
+from taxi_bot.core.handlers.client.city_ride import city_ride_router
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 async def main():
-    dp = Dispatcher(storage=MemoryStorage())
-    dp.include_router(start.router)
-    dp.include_router(city_ride.router)
-    dp.include_router(alcohol.router)
-    await dp.start_polling(Bots.client)
+    """Главная функция клиентского бота"""
+
+    # Инициализация бота
+    bot = Bot(
+        token=config.client_bot.token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
+
+    # Создание диспетчера
+    dp = Dispatcher()
+
+    # Регистрация роутеров
+    dp.include_router(client_router)
+    dp.include_router(city_ride_router)
+
+    try:
+        # Инициализация базы данных
+        logger.info("Initializing database...")
+        await init_database()
+
+        # Информация о боте
+        bot_info = await bot.get_me()
+        logger.info(f"Starting client bot: @{bot_info.username}")
+
+        # Уведомляем о запуске
+        if config.debug:
+            logger.info("🚖 Client Taxi Bot started in DEBUG mode!")
+        else:
+            logger.info("🚖 Client Taxi Bot started!")
+
+        # Запуск long polling
+        await dp.start_polling(bot)
+
+    except Exception as e:
+        logger.error(f"Error starting bot: {e}")
+        raise
+
+    finally:
+        # Закрытие соединений
+        logger.info("Shutting down...")
+        await close_database()
+        await bot.session.close()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        exit(1)
