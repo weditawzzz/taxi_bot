@@ -1,3 +1,5 @@
+# Обновите notifications.py
+
 """
 Сервис уведомлений для водителей и клиентов
 """
@@ -9,81 +11,85 @@ logger = logging.getLogger(__name__)
 
 
 async def notify_driver_about_ride(ride_id: int, ride_data: dict):
-    """Уведомление водителя о новой поездке"""
+    """Уведомление водителя о новой поездке - ИСПОЛЬЗУЕМ НОВЫЙ СЕРВИС"""
     try:
-        from core.bot_instance import Bots
+        from core.services.driver_notification import driver_notification_service
 
-        builder = InlineKeyboardBuilder()
-        builder.button(text="✅ Przyjmij", callback_data=f"accept_{ride_id}")
-        builder.button(text="❌ Odrzuć", callback_data=f"reject_{ride_id}")
+        # Используем новый сервис множественных уведомлений
+        await driver_notification_service.notify_all_drivers(ride_id, ride_data)
 
-        # Проверяем тип заказа
-        if ride_data.get('notes', '').startswith('ALCOHOL DELIVERY'):
-            # Заказ алкоголя БЕЗ списка магазинов
-
-            # Извлекаем информацию из notes
-            notes = ride_data.get('notes', '')
-            products = "N/A"
-            budget = "N/A"
-
-            if "Products:" in notes:
-                products = notes.split("Products:")[1].split(",")[0].strip()
-            if "Budget:" in notes:
-                budget = notes.split("Budget:")[1].split("zł")[0].strip()
-
-            text = (
-                "🛒 <b>DOSTAWA ALKOHOLU</b>\n\n"
-                f"📝 <b>Lista zakupów:</b>\n{products}\n\n"
-                f"💰 <b>Budżet klienta:</b> {budget} zł\n"
-                f"📍 <b>Dostawa na:</b> {ride_data.get('destination_address', 'N/A')}\n"
-                f"📏 <b>Odległość:</b> ~{ride_data.get('distance_km', 5):.1f} km\n"
-                f"💵 <b>Twoja opłata:</b> 20 zł\n\n"
-                f"ℹ️ <b>Instrukcje:</b>\n"
-                f"1. Wybierz najbliższy sklep z alkoholem\n"
-                f"2. Kup produkty zgodnie z listą\n"
-                f"3. Zachowaj paragon fiskalny!\n"
-                f"4. Dostarcz + sprawdź dokumenty (18+)\n"
-                f"5. Odbierz: 20 zł + koszt zakupów"
-            )
-        else:
-            # Обычный заказ такси
-            text = (
-                "🚖 <b>Nowe zamówienie!</b>\n\n"
-                f"Z: {ride_data.get('pickup_address', 'N/A')}\n"
-                f"Do: {ride_data.get('destination_address', 'N/A')}\n"
-                f"Dystans: {ride_data.get('distance_km', 0):.1f} km\n"
-                f"Cena: {ride_data.get('estimated_price', 0)} zł\n"
-                f"Pasażerów: {ride_data.get('passengers_count', 1)}"
-            )
-
-        await Bots.driver.send_message(
-            chat_id=Config.DRIVER_CHAT_ID,
-            text=text,
-            reply_markup=builder.as_markup(),
-            parse_mode="HTML"
-        )
-
-        logger.info(f"Driver notified about ride {ride_id}")
+        logger.info(f"All drivers notified about ride {ride_id} via new service")
 
     except Exception as e:
-        logger.error(f"Error notifying driver about ride {ride_id}: {e}")
+        logger.error(f"Error notifying drivers about ride {ride_id}: {e}")
 
 
 async def notify_client_order_update(user_id: int, message: str):
-    """Уведомление клиента об обновлении заказа"""
+    """Уведомление клиента об обновлении заказа с МАКСИМАЛЬНЫМ звуком"""
     try:
         from core.bot_instance import Bots
 
+        # МАКСИМАЛЬНЫЕ НАСТРОЙКИ ДЛЯ ЗВУКА
         await Bots.client.send_message(
             chat_id=user_id,
             text=message,
-            parse_mode="HTML"
+            parse_mode="HTML",
+            disable_notification=False,    # Включаем уведомления
+            protect_content=False,         # Не защищаем контент
+            disable_web_page_preview=True, # Отключаем превью
+            message_thread_id=None         # Основная ветка чата
         )
 
-        logger.info(f"Client {user_id} notified about order update")
+        # Дополнительно отправляем эмодзи для привлечения внимания
+        try:
+            await Bots.client.send_message(
+                chat_id=user_id,
+                text="🔔",  # Колокольчик
+                disable_notification=False
+            )
+        except:
+            pass  # Игнорируем ошибки
+
+        logger.info(f"Client {user_id} notified with maximum sound settings")
 
     except Exception as e:
         logger.error(f"Error notifying client {user_id}: {e}")
+
+
+async def send_sound_notification(chat_id: int, text: str, bot_instance):
+    """Универсальная функция отправки звукового уведомления"""
+    try:
+        # Основное сообщение с максимальными настройками звука
+        await bot_instance.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+            disable_notification=False,
+            protect_content=False,
+            disable_web_page_preview=True
+        )
+
+        # Дополнительный звуковой эффект через стикер
+        try:
+            # Стикер-звонок (если доступен)
+            await bot_instance.send_sticker(
+                chat_id=chat_id,
+                sticker="CAACAgIAAxkBAAEMxjJnQVT6R1q-gk0pF9J2AAHfgWG3BgACJgADKA9qFIxUTmr_Zm9lHgQ",
+                disable_notification=False
+            )
+        except:
+            # Если стикер недоступен, отправляем аудио-сообщение с тональным сигналом
+            try:
+                await bot_instance.send_message(
+                    chat_id=chat_id,
+                    text="🔊 NOWE ZAMÓWIENIE! 🔊",
+                    disable_notification=False
+                )
+            except:
+                pass
+
+    except Exception as e:
+        logger.error(f"Error sending sound notification: {e}")
 
 
 # Обратная совместимость со старыми функциями

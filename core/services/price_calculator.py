@@ -8,9 +8,8 @@ from datetime import datetime, time
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import config
+from ..config import config, Config  # Исправленный импорт
 from ..exceptions import ValidationError, BusinessLogicError, ServiceError
-from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -135,3 +134,20 @@ class PriceCalculatorService:
         except Exception as e:
             logger.error(f"Error calculating price breakdown: {e}")
             raise ServiceError("Failed to calculate price breakdown")
+
+
+# Функции для обратной совместимости
+def get_user_language(telegram_id: int) -> str:
+    """Синхронная версия получения языка пользователя для совместимости"""
+    return "pl"  # Fallback
+
+
+async def get_user_language_async(telegram_id: int) -> str:
+    """Асинхронная версия получения языка пользователя"""
+    try:
+        from .user_service import UserService
+        user_service = UserService()
+        user = await user_service.get_user_by_telegram_id(telegram_id)
+        return user.language if user and user.language else "pl"
+    except Exception:
+        return "pl"

@@ -139,6 +139,12 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+# Алиас для обратной совместимости
+def language_keyboard() -> InlineKeyboardMarkup:
+    """Алиас для обратной совместимости"""
+    return get_language_keyboard()
+
+
 def get_driver_order_keyboard(language: str = "pl") -> InlineKeyboardMarkup:
     """Клавиатура для водителя при получении заказа"""
 

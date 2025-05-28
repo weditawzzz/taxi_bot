@@ -1,5 +1,5 @@
 from aiogram import Bot
-from config import Config
+from core.config import Config  # Исправленный импорт
 
 class Bots:
     client = Bot(token=Config.CLIENT_BOT_TOKEN)

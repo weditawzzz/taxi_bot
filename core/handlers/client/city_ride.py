@@ -266,9 +266,65 @@ async def confirm_ride(callback: CallbackQuery, state: FSMContext) -> None:
     try:
         language = await get_user_language(callback.from_user.id)
 
+        # Получаем данные заказа
+        data = await state.get_data()
+        pickup_location = data.get('pickup_location')
+        destination_location = data.get('destination_location')
+        passengers_count = data.get('passengers_count')
+        route_info = data.get('route_info')
+        estimated_price = data.get('estimated_price')
+
         # Генерируем ID заказа
         import random
         ride_id = f"TX{random.randint(1000, 9999)}"
+
+        # Сохраняем заказ в базу данных
+        try:
+            from core.models import Ride, RideStatus
+            from core.database import get_session
+
+            async with get_session() as session:
+                ride = Ride(
+                    client_id=callback.from_user.id,
+                    user_id=callback.from_user.id,  # Для совместимости
+                    pickup_address=pickup_location.address,
+                    pickup_lat=pickup_location.latitude,
+                    pickup_lng=pickup_location.longitude,
+                    destination_address=destination_location.address,
+                    destination_lat=destination_location.latitude,
+                    destination_lng=destination_location.longitude,
+                    distance_km=route_info.distance_km,
+                    duration_minutes=route_info.duration_minutes,
+                    estimated_price=estimated_price,
+                    price=estimated_price,  # Для совместимости
+                    status=RideStatus.PENDING,
+                    passengers_count=passengers_count,
+                    order_type="city_ride",
+                    payment_method="cash"
+                )
+
+                session.add(ride)
+                await session.commit()
+                await session.refresh(ride)
+
+                logger.info(f"Ride saved to database: {ride.id}")
+
+                # Отправляем уведомление водителям через новый сервис
+                from core.services.driver_notification import driver_notification_service
+
+                await driver_notification_service.notify_all_drivers(ride.id, {
+                    'pickup_address': pickup_location.address,
+                    'destination_address': destination_location.address,
+                    'distance_km': route_info.distance_km,
+                    'estimated_price': estimated_price,
+                    'passengers_count': passengers_count,
+                    'order_type': 'city_ride'
+                })
+
+        except Exception as e:
+            logger.error(f"Error saving ride: {e}")
+            await callback.answer("❌ Błąd zapisywania zamówienia")
+            return
 
         success_text = get_text(
             "ride_created",
@@ -292,6 +348,74 @@ async def confirm_ride(callback: CallbackQuery, state: FSMContext) -> None:
     except Exception as e:
         logger.error(f"Error confirming ride: {e}")
         await callback.answer("❌ Wystąpił błąd. Spróbuj ponownie.")
+
+
+async def notify_driver_about_ride(ride_id: int, ride_data: dict):
+    """Уведомление водителя о новом заказе такси"""
+    try:
+        from core.bot_instance import Bots
+        from core.config import Config
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+        builder = InlineKeyboardBuilder()
+        builder.button(text="✅ Przyjmij", callback_data=f"accept_{ride_id}")
+        builder.button(text="❌ Odrzuć", callback_data=f"reject_{ride_id}")
+
+        text = (
+            "🚖 <b>NOWE ZAMÓWIENIE TAXI</b>\n\n"
+            f"📍 <b>Z:</b> {ride_data['pickup_address']}\n"
+            f"📍 <b>Do:</b> {ride_data['destination_address']}\n\n"
+            f"📏 <b>Odległość:</b> {ride_data['distance_km']:.1f} km\n"
+            f"👥 <b>Pasażerów:</b> {ride_data['passengers_count']}\n"
+            f"💵 <b>Cena:</b> {ride_data['estimated_price']} zł\n\n"
+            f"⏰ <b>Czas na odpowiedź:</b> 60 sekund"
+        )
+
+        await Bots.driver.send_message(
+            chat_id=Config.DRIVER_CHAT_ID,
+            text=text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+        logger.info(f"Driver notified about ride {ride_id}")
+
+    except Exception as e:
+        logger.error(f"Error notifying driver about ride {ride_id}: {e}")
+
+
+async def notify_driver_about_ride(ride_id: int, ride_data: dict):
+    """Уведомление водителя о новом заказе такси"""
+    try:
+        from core.bot_instance import Bots
+        from core.config import Config
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+        builder = InlineKeyboardBuilder()
+        builder.button(text="✅ Przyjmij", callback_data=f"accept_{ride_id}")
+        builder.button(text="❌ Odrzuć", callback_data=f"reject_{ride_id}")
+
+        text = (
+            "🚖 <b>NOWE ZAMÓWIENIE TAXI</b>\n\n"
+            f"📍 <b>Z:</b> {ride_data['pickup_address']}\n"
+            f"📍 <b>Do:</b> {ride_data['destination_address']}\n\n"
+            f"📏 <b>Odległość:</b> {ride_data['distance_km']:.1f} km\n"
+            f"👥 <b>Pasażerów:</b> {ride_data['passengers_count']}\n"
+            f"💵 <b>Cena:</b> {ride_data['estimated_price']} zł\n\n"
+            f"⏰ <b>Czas na odpowiedź:</b> 60 sekund"
+        )
+
+        await Bots.driver.send_message(
+            chat_id=Config.DRIVER_CHAT_ID,
+            text=text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+        logger.info(f"Driver notified about ride {ride_id}")
+
+    except Exception as e:
+        logger.error(f"Error notifying driver about ride {ride_id}: {e}")
 
 
 @city_ride_router.callback_query(F.data == "cancel_ride")

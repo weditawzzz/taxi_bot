@@ -53,7 +53,7 @@ try:
     from aiogram.client.default import DefaultBotProperties
     from aiogram.enums import ParseMode
 
-    # Импортируем напрямую из core
+    # Импортируем из исправленного core
     from core.config import config
     from core.database import init_database, close_database
     from core.handlers.client.start import client_router
@@ -63,6 +63,7 @@ try:
     try:
         from core.handlers.client.alcohol import router as alcohol_router
         alcohol_available = True
+        print("✅ Alcohol handler loaded successfully!")
     except ImportError as e:
         print(f"⚠️ Alcohol handler not available: {e}")
         alcohol_router = None

@@ -1,0 +1,11 @@
+{
+  "backups": [
+    {
+      "timestamp": "2025-05-28T03:50:34.277726",
+      "type": "manual",
+      "filename": "taxi_backup_manual_20250528_035034.zip",
+      "size_mb": 0.04,
+      "status": "success"
+    }
+  ]
+}
