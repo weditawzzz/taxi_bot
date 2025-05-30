@@ -17,6 +17,8 @@ from taxi_bot.core.config import config
 from taxi_bot.core.database import init_database, close_database
 from taxi_bot.core.handlers.client.start import client_router
 from taxi_bot.core.handlers.client.city_ride import city_ride_router
+from core.handlers.client.taxi_ride import taxi_router
+
 
 # Настройка логирования
 logging.basicConfig(
@@ -41,6 +43,7 @@ async def main():
     # Регистрация роутеров
     dp.include_router(client_router)
     dp.include_router(city_ride_router)
+    dp.include_router(taxi_router)
 
     try:
         # Инициализация базы данных

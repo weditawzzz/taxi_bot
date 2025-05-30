@@ -1,5 +1,5 @@
 """
-Запуск клиентского бота для заказа такси
+Запуск клиентского бота для заказа такси с системой ожидания
 """
 import asyncio
 import logging
@@ -53,23 +53,33 @@ try:
     from aiogram.client.default import DefaultBotProperties
     from aiogram.enums import ParseMode
 
-    # Импортируем из исправленного core
+    # Импортируем напрямую из core
     from core.config import config
     from core.database import init_database, close_database
     from core.handlers.client.start import client_router
     from core.handlers.client.city_ride import city_ride_router
 
+    # ОСНОВНОЙ: Импортируем обновленный taxi_ride с системой ожидания
+    try:
+        from core.handlers.client.taxi_ride import taxi_router
+        taxi_ride_available = True
+        print("✅ taxi_router (with waiting system) imported successfully!")
+    except ImportError as e:
+        print(f"⚠️ taxi_router not available: {e}")
+        taxi_router = None
+        taxi_ride_available = False
+
     # Импортируем новый обработчик алкоголя
     try:
         from core.handlers.client.alcohol import router as alcohol_router
         alcohol_available = True
-        print("✅ Alcohol handler loaded successfully!")
+        print("✅ alcohol_router imported successfully!")
     except ImportError as e:
         print(f"⚠️ Alcohol handler not available: {e}")
         alcohol_router = None
         alcohol_available = False
 
-    print("✅ All imports successful!")
+    print("✅ All main imports successful!")
 
 except ImportError as e:
     print(f"❌ Import error: {e}")
@@ -77,13 +87,6 @@ except ImportError as e:
     print("Files in current directory:")
     for item in os.listdir(current_dir):
         print(f"  - {item}")
-
-    # Более детальная диагностика для обработчика алкоголя
-    alcohol_path = os.path.join(current_dir, 'core', 'handlers', 'client', 'alcohol.py')
-    if os.path.exists(alcohol_path):
-        print(f"✅ Alcohol handler exists at: {alcohol_path}")
-    else:
-        print(f"❌ Alcohol handler missing: {alcohol_path}")
 
     exit(1)
 
@@ -109,13 +112,25 @@ async def main():
         dp = Dispatcher()
 
         # Регистрация роутеров
-        dp.include_router(client_router)
-        dp.include_router(city_ride_router)
+        print("📋 Registering client routers...")
 
-        # Добавляем обработчик алкоголя если доступен
+        # 1. Основные роутеры
+        dp.include_router(client_router)
+        print("✅ client_router registered (start, settings)")
+
+        # 2. ВАЖНО: Сначала taxi_router (с системой ожидания), потом city_ride_router
+        if taxi_ride_available and taxi_router:
+            dp.include_router(taxi_router)
+            print("✅ taxi_router registered (with waiting system)")
+
+        dp.include_router(city_ride_router)
+        print("✅ city_ride_router registered (basic taxi)")
+
+        # 3. Добавляем обработчик алкоголя если доступен
         if alcohol_available and alcohol_router:
             dp.include_router(alcohol_router)
             logger.info("🍷 Alcohol delivery module loaded!")
+            print("✅ alcohol_router registered")
         else:
             logger.warning("⚠️ Alcohol delivery module not loaded")
 
@@ -136,15 +151,22 @@ async def main():
             logger.info("🚖 Client Taxi Bot started in DEBUG mode!")
             if alcohol_available:
                 logger.info("🍷 Alcohol delivery module loaded!")
+            if taxi_ride_available:
+                logger.info("⏰ Waiting system module loaded!")
         else:
             logger.info("🚖 Client Taxi Bot started!")
             if alcohol_available:
                 logger.info("🍷 Alcohol delivery module loaded!")
+            if taxi_ride_available:
+                logger.info("⏰ Waiting system module loaded!")
 
         print(f"🎉 Bot @{bot_info.username} is running!")
         print("💬 Go to Telegram and send /start to your bot!")
         if alcohol_available:
             print("🍷 Alcohol delivery from shops is now available!")
+        if taxi_ride_available:
+            print("⏰ Waiting counter system is ACTIVE!")
+            print("🛑 Passengers can now request stops during rides!")
         print("🛑 Press Ctrl+C to stop")
 
         # Запуск long polling
@@ -156,6 +178,8 @@ async def main():
             print("❌ Bot token is invalid! Check your .env file.")
         elif "alcohol" in str(e).lower():
             print("❌ Error loading alcohol module. Check alcohol.py file.")
+        elif "taxi_ride" in str(e).lower() or "waiting" in str(e).lower():
+            print("❌ Error loading taxi_ride module. Check taxi_ride.py file.")
         raise
 
     finally:

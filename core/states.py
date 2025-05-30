@@ -14,8 +14,14 @@ class ClientStates(StatesGroup):
     WAITING_RIDE_CONFIRMATION = State()
     WAITING_RIDE_NOTES = State()
 
-    # Управление поездкой
-    RIDE_IN_PROGRESS = State()
+    # НОВЫЕ СОСТОЯНИЯ: Управление поездкой
+    RIDE_PENDING = State()        # Ожидание водителя
+    RIDE_ACCEPTED = State()       # Водитель принял заказ
+    DRIVER_ARRIVING = State()     # Водитель едет к пассажиру
+    RIDE_IN_PROGRESS = State()    # Поездка началась
+    RIDE_COMPLETED = State()      # Поездка завершена
+
+    # Оценка и отзывы
     WAITING_RATING = State()
     WAITING_REVIEW = State()
 
@@ -35,11 +41,14 @@ class DriverStates(StatesGroup):
     WAITING_VEHICLE_COLOR = State()
     WAITING_VEHICLE_PLATE = State()
     WAITING_DOCUMENTS = State()
+    WAITING_FOR_PASSENGER = State()  # Водитель ждет пассажира
+    CONFIRMING_WAIT_END = State()  # Подтверждение окончания ожидания
 
-    # Работа с заказами
+    # НОВЫЕ СОСТОЯНИЯ: Работа с заказами
     VIEWING_ORDER = State()
-    CONFIRMING_PICKUP = State()
-    RIDE_IN_PROGRESS = State()
+    RIDE_ACCEPTED = State()       # Заказ принят, едем к пассажиру
+    ARRIVED_AT_PICKUP = State()   # Прибыл к пассажиру
+    RIDE_IN_PROGRESS = State()    # Поездка началась
     CONFIRMING_COMPLETION = State()
 
     # Управление статусом

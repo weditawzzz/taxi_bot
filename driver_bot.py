@@ -1,5 +1,5 @@
 """
-Водительский бот для такси
+Водительский бот для такси с интегрированной системой ожидания
 """
 import asyncio
 import logging
@@ -31,10 +31,8 @@ try:
 except ImportError:
     print("❌ python-dotenv not installed. Installing...")
     import subprocess
-
     subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv"])
     from dotenv import load_dotenv
-
     load_dotenv()
 
 try:
@@ -48,6 +46,9 @@ try:
     from core.database import init_database, close_database
     from core.handlers.driver import order_handlers, vehicle_handlers
     from core.handlers.driver import driver_start
+
+    # ИСПРАВЛЕНО: Импортируем роутер правильно
+    from core.handlers.driver.ride_handlers import driver_ride_router
 
     print("✅ All driver bot imports successful!")
 
@@ -77,10 +78,24 @@ async def main():
         # Создание диспетчера с хранилищем состояний
         dp = Dispatcher(storage=MemoryStorage())
 
-        # Регистрация роутеров
-        dp.include_router(driver_start.router)  # Водительский старт
-        dp.include_router(order_handlers.router)  # Обработка заказов
-        dp.include_router(vehicle_handlers.router)  # Управление авто
+        # ИСПРАВЛЕНО: Правильный порядок регистрации роутеров
+        print("📋 Registering routers...")
+
+        # 1. Стартовый роутер (выбор языка)
+        dp.include_router(driver_start.router)
+        print("✅ driver_start.router registered")
+
+        # 2. Роутер управления автомобилем
+        dp.include_router(vehicle_handlers.router)
+        print("✅ vehicle_handlers.router registered")
+
+        # 3. Роутер обработки заказов (основной)
+        dp.include_router(order_handlers.router)
+        print("✅ order_handlers.router registered")
+
+        # 4. НОВЫЙ: Роутер управления поездками с системой ожидания
+        dp.include_router(driver_ride_router)
+        print("✅ driver_ride_router registered (with waiting system)")
 
         # Создаем папки если их нет
         os.makedirs('data', exist_ok=True)
@@ -97,11 +112,14 @@ async def main():
         # Уведомляем о запуске
         if config.debug:
             logger.info("🚗 Driver Bot started in DEBUG mode!")
+            logger.info("⏰ Waiting system enabled!")
         else:
             logger.info("🚗 Driver Bot started!")
+            logger.info("⏰ Waiting system enabled!")
 
         print(f"🎉 Driver Bot @{bot_info.username} is running!")
         print("💬 Go to Telegram and send /start to your driver bot!")
+        print("⏰ Waiting counter system is ACTIVE!")
         print("🛑 Press Ctrl+C to stop")
 
         # Запуск long polling
@@ -111,6 +129,8 @@ async def main():
         logger.error(f"Error starting driver bot: {e}")
         if "Unauthorized" in str(e):
             print("❌ Driver bot token is invalid! Check your .env file.")
+        elif "ride_handlers" in str(e).lower():
+            print("❌ Error importing ride_handlers. Check ride_handlers.py file.")
         raise
 
     finally:

@@ -211,3 +211,212 @@ def get_driver_status_keyboard(language: str = "pl", is_online: bool = False) ->
             ]
 
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+
+# ===================================================================
+# НОВЫЕ КЛАВИАТУРЫ ДЛЯ ПОЛНОГО УПРАВЛЕНИЯ ПОЕЗДКОЙ
+# ===================================================================
+
+def get_client_ride_keyboard(language: str = "pl", status: str = "pending") -> InlineKeyboardMarkup:
+    """Клавиатура для управления поездкой клиентом"""
+    buttons = []
+
+    if status == "pending":
+        # Заказ ожидает принятия
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="❌ Cancel Order", callback_data="cancel_ride")],
+                [InlineKeyboardButton(text="📞 Call Support", callback_data="call_support")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="❌ Отменить заказ", callback_data="cancel_ride")],
+                [InlineKeyboardButton(text="📞 Связаться с поддержкой", callback_data="call_support")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="❌ Anuluj zamówienie", callback_data="cancel_ride")],
+                [InlineKeyboardButton(text="📞 Skontaktuj się z pomocą", callback_data="call_support")]
+            ]
+
+    elif status == "accepted":
+        # Водитель принял заказ, едет к пассажиру
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="📍 Driver Location", callback_data="show_driver_location")],
+                [InlineKeyboardButton(text="📞 Call Driver", callback_data="call_driver")],
+                [InlineKeyboardButton(text="❌ Cancel Order", callback_data="cancel_ride")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="📍 Местоположение водителя", callback_data="show_driver_location")],
+                [InlineKeyboardButton(text="📞 Позвонить водителю", callback_data="call_driver")],
+                [InlineKeyboardButton(text="❌ Отменить заказ", callback_data="cancel_ride")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="📍 Lokalizacja kierowcy", callback_data="show_driver_location")],
+                [InlineKeyboardButton(text="📞 Zadzwoń do kierowcy", callback_data="call_driver")],
+                [InlineKeyboardButton(text="❌ Anuluj zamówienie", callback_data="cancel_ride")]
+            ]
+
+    elif status == "in_progress":
+        # Поездка началась
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="📍 Current Location", callback_data="show_current_location")],
+                [InlineKeyboardButton(text="🛑 Request Stop", callback_data="request_stop")],
+                [InlineKeyboardButton(text="📞 Call Driver", callback_data="call_driver")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="📍 Текущее местоположение", callback_data="show_current_location")],
+                [InlineKeyboardButton(text="🛑 Запросить остановку", callback_data="request_stop")],
+                [InlineKeyboardButton(text="📞 Позвонить водителю", callback_data="call_driver")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="📍 Aktualna lokalizacja", callback_data="show_current_location")],
+                [InlineKeyboardButton(text="🛑 Poproś o zatrzymanie", callback_data="request_stop")],
+                [InlineKeyboardButton(text="📞 Zadzwoń do kierowcy", callback_data="call_driver")]
+            ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_driver_ride_keyboard(language: str = "pl", status: str = "accepted") -> InlineKeyboardMarkup:
+    """Клавиатура для управления поездкой водителем"""
+    buttons = []
+
+    if status == "accepted":
+        # Заказ принят, едем к пассажиру
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Navigate to Pickup", callback_data="navigate_pickup")],
+                [InlineKeyboardButton(text="📞 Call Passenger", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="✅ I've Arrived", callback_data="driver_arrived")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Навигация к пассажиру", callback_data="navigate_pickup")],
+                [InlineKeyboardButton(text="📞 Позвонить пассажиру", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="✅ Я прибыл", callback_data="driver_arrived")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Nawigacja do pasażera", callback_data="navigate_pickup")],
+                [InlineKeyboardButton(text="📞 Zadzwoń do pasażera", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="✅ Przyjechałem", callback_data="driver_arrived")]
+            ]
+
+    elif status == "arrived":
+        # Водитель прибыл к пассажиру
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="🚦 Start Trip", callback_data="start_trip")],
+                [InlineKeyboardButton(text="📞 Call Passenger", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="❌ Cancel Order", callback_data="driver_cancel")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="🚦 Начать поездку", callback_data="start_trip")],
+                [InlineKeyboardButton(text="📞 Позвонить пассажиру", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="❌ Отменить заказ", callback_data="driver_cancel")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="🚦 Rozpocznij podróż", callback_data="start_trip")],
+                [InlineKeyboardButton(text="📞 Zadzwoń do pasażera", callback_data="call_passenger")],
+                [InlineKeyboardButton(text="❌ Anuluj zamówienie", callback_data="driver_cancel")]
+            ]
+
+    elif status == "in_progress":
+        # Поездка в процессе
+        if language == "en":
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Navigate to Destination", callback_data="navigate_destination")],
+                [InlineKeyboardButton(text="🛑 Emergency Stop", callback_data="emergency_stop")],
+                [InlineKeyboardButton(text="🏁 Complete Trip", callback_data="complete_trip")]
+            ]
+        elif language == "ru":
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Навигация к месту назначения", callback_data="navigate_destination")],
+                [InlineKeyboardButton(text="🛑 Экстренная остановка", callback_data="emergency_stop")],
+                [InlineKeyboardButton(text="🏁 Завершить поездку", callback_data="complete_trip")]
+            ]
+        else:  # pl
+            buttons = [
+                [InlineKeyboardButton(text="🧭 Nawigacja do celu", callback_data="navigate_destination")],
+                [InlineKeyboardButton(text="🛑 Nagłe zatrzymanie", callback_data="emergency_stop")],
+                [InlineKeyboardButton(text="🏁 Zakończ podróż", callback_data="complete_trip")]
+            ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_location_sharing_keyboard(language: str = "pl") -> ReplyKeyboardMarkup:
+    """Клавиатура для постоянной передачи геопозиции"""
+    if language == "en":
+        buttons = [
+            [KeyboardButton(text="📍 Share Live Location", request_location=True)],
+            [KeyboardButton(text="🛑 Stop Sharing Location")]
+        ]
+    elif language == "ru":
+        buttons = [
+            [KeyboardButton(text="📍 Транслировать геопозицию", request_location=True)],
+            [KeyboardButton(text="🛑 Остановить трансляцию")]
+        ]
+    else:  # pl
+        buttons = [
+            [KeyboardButton(text="📍 Udostępnij lokalizację na żywo", request_location=True)],
+            [KeyboardButton(text="🛑 Przestań udostępniać lokalizację")]
+        ]
+
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+def get_waiting_keyboard(language: str = "pl") -> InlineKeyboardMarkup:
+    """Клавиатура для управления ожиданием"""
+    if language == "en":
+        buttons = [
+            [InlineKeyboardButton(text="⏸️ Stop Waiting", callback_data="stop_waiting")],
+            [InlineKeyboardButton(text="📊 Check Wait Time", callback_data="check_wait_time")],
+            [InlineKeyboardButton(text="🚦 Continue Trip", callback_data="continue_trip")]
+        ]
+    elif language == "ru":
+        buttons = [
+            [InlineKeyboardButton(text="⏸️ Прекратить ожидание", callback_data="stop_waiting")],
+            [InlineKeyboardButton(text="📊 Проверить время", callback_data="check_wait_time")],
+            [InlineKeyboardButton(text="🚦 Продолжить поездку", callback_data="continue_trip")]
+        ]
+    else:  # pl
+        buttons = [
+            [InlineKeyboardButton(text="⏸️ Zakończ oczekiwanie", callback_data="stop_waiting")],
+            [InlineKeyboardButton(text="📊 Sprawdź czas", callback_data="check_wait_time")],
+            [InlineKeyboardButton(text="🚦 Kontynuuj podróż", callback_data="continue_trip")]
+        ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_passenger_waiting_keyboard(language: str = "pl") -> InlineKeyboardMarkup:
+    """Клавиатура для пассажира во время ожидания"""
+    if language == "en":
+        buttons = [
+            [InlineKeyboardButton(text="✅ Ready to Continue", callback_data="passenger_ready")],
+            [InlineKeyboardButton(text="⏰ I Need More Time", callback_data="need_more_time")],
+            [InlineKeyboardButton(text="📞 Call Driver", callback_data="call_driver")]
+        ]
+    elif language == "ru":
+        buttons = [
+            [InlineKeyboardButton(text="✅ Готов продолжить", callback_data="passenger_ready")],
+            [InlineKeyboardButton(text="⏰ Нужно больше времени", callback_data="need_more_time")],
+            [InlineKeyboardButton(text="📞 Позвонить водителю", callback_data="call_driver")]
+        ]
+    else:  # pl
+        buttons = [
+            [InlineKeyboardButton(text="✅ Gotowy do kontynuacji", callback_data="passenger_ready")],
+            [InlineKeyboardButton(text="⏰ Potrzebuję więcej czasu", callback_data="need_more_time")],
+            [InlineKeyboardButton(text="📞 Zadzwoń do kierowcy", callback_data="call_driver")]
+        ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

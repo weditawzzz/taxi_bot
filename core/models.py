@@ -34,6 +34,7 @@ class RideStatus(str, Enum):
     """Статусы поездок"""
     PENDING = "pending"
     ACCEPTED = "accepted"
+    DRIVER_ARRIVED = "driver_arrived"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
@@ -152,6 +153,15 @@ class Ride(Base):
     # Дополнительные поля для совместимости
     origin: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Алиас для pickup_address
     destination: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Алиас для destination_address
+
+    # НОВЫЕ ПОЛЯ для счетчика ожидания:
+    waiting_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    waiting_ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    waiting_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
+    waiting_cost: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True, default=Decimal('0.00'))
+
+    # Дополнительные остановки (JSON список)
+    stops_log: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON строка с историей остановок
 
     # Стоимость и расстояние
     distance_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
